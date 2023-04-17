@@ -1,0 +1,6 @@
+.vscode
+*.uvgui.*
+*.uvopt
+
+!Driver
+!CORE/*
