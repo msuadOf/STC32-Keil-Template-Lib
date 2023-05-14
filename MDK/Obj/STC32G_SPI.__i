@@ -1,0 +1,1 @@
+"Driver\Src\STC32G_SPI.c" XSMALL INTR2 OPTIMIZE (0,SPEED) BROWSE INCDIR(.\Driver;.\Driver\Inc;.\Driver\Isr;.\CORE\Inc;.\bsp\include) DEBUG PRINT(.\MDK\List\STC32G_SPI.lst) TABS (2) OBJECT(.\MDK\Obj\STC32G_SPI.obj)

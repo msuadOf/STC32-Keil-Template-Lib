@@ -7,7 +7,7 @@
 
   <Targets>
     <Target>
-      <TargetName>01_GPIO</TargetName>
+      <TargetName>05_UART_lib</TargetName>
       <ToolsetNumber>0x1</ToolsetNumber>
       <ToolsetName>MCS-251</ToolsetName>
       <uAC6>0</uAC6>
@@ -46,7 +46,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\MDK\Obj\</OutputDirectory>
-          <OutputName>01_GPIO</OutputName>
+          <OutputName>05_UART_lib</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
@@ -264,7 +264,7 @@
             <uUch>0</uUch>
             <uFlt64>0</uFlt64>
             <Fuzzy>3</Fuzzy>
-            <Optim>7</Optim>
+            <Optim>0</Optim>
             <wLevel>2</wLevel>
             <SizSpd>1</SizSpd>
             <AcaOpt>0</AcaOpt>
@@ -272,7 +272,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>.\Driver;.\Driver\Inc;.\Driver\Isr;.\CORE\Inc</IncludePath>
+              <IncludePath>.\Driver;.\Driver\Inc;.\Driver\Isr;.\CORE\Inc;.\bsp\include</IncludePath>
             </VariousControls>
           </C251>
           <Ax51>
@@ -328,6 +328,21 @@
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>CORE\Src\main.c</FilePath>
+            </File>
+            <File>
+              <FileName>LineHunting.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\CORE\Src\LineHunting.c</FilePath>
+            </File>
+            <File>
+              <FileName>pid.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\CORE\Src\pid.c</FilePath>
+            </File>
+            <File>
+              <FileName>MPU6500.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\CORE\Src\MPU6500.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -444,11 +459,6 @@
               <FileType>1</FileType>
               <FilePath>.\Driver\Src\STC32G_WDT.c</FilePath>
             </File>
-            <File>
-              <FileName>STC32_MDU32_V1.1.LIB</FileName>
-              <FileType>4</FileType>
-              <FilePath>.\Driver\STC32_MDU32_V1.1.LIB</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>
@@ -523,6 +533,21 @@
               <FileName>STC32G_UART_Isr.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Driver\Isr\STC32G_UART_Isr.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>bsp</GroupName>
+          <Files>
+            <File>
+              <FileName>bsp_spi_mpu6500.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bsp\bsp_spi_mpu6500.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_uart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bsp\bsp_uart.c</FilePath>
             </File>
           </Files>
         </Group>

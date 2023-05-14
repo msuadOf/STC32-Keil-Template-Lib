@@ -2,6 +2,9 @@
 #include "STC32G_SPI.h"
 #include "STC32G_LCM.h"
 
+
+void STC32G_DMA_ADC_IRQHandler();
+
 //========================================================================
 // 函数: DMA_ADC_ISR_Handler
 // 描述: DMA ADC 中断函数.
@@ -16,6 +19,7 @@ void DMA_ADC_ISR_Handler (void) interrupt DMA_ADC_VECTOR
 	{
 		DMA_ADC_STA &= ~0x01;	//清标志位
 //		DmaADCFlag = 1;
+		STC32G_DMA_ADC_IRQHandler();
 	}
 }
 

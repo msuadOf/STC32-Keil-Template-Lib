@@ -1,0 +1,556 @@
+C251 COMPILER V5.60.0,  main                                                               14/05/23  18:17:52  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE main
+OBJECT MODULE PLACED IN .\MDK\Obj\main.obj
+COMPILER INVOKED BY: D:\Program\Keil_v5\C251\BIN\C251.EXE CORE\Src\main.c XSMALL INTR2 OPTIMIZE(0,SPEED) BROWSE INCDIR(.
+                    -\Driver;.\Driver\Inc;.\Driver\Isr;.\CORE\Inc;.\bsp\include) DEBUG PRINT(.\MDK\List\main.lst) TABS(2) OBJECT(.\MDK\Obj\ma
+                    -in.obj) 
+
+stmt  level    source
+
+    1          #include "config.h"
+    2          #include "STC32G_GPIO.h"
+    3          #include "STC32G_Delay.h"
+    4          #include "STC32G_Switch.h"
+    5          #include "STC32G_NVIC.h"
+    6          #include "STC32G_UART.h"
+    7          
+    8          #include "STC32G_ADC.h"
+    9          #include "STC32G_DMA.h"
+   10          #include "STC32G_Timer.h"
+   11          
+   12          #include "main.h"
+   13          #include "math.h"
+   14          #include "pid.h"
+   15          #include "LineHunting.h"
+   16          #include "MPU6500.h"
+   17          
+   18          /***************  ¹¦ÄÜËµÃ÷  ****************
+   19          
+   20          ³ÌÐòÊ¹ÓÃP2¿ÚÀ´ÑÝÊ¾ÅÜÂíµÆ¡£
+   21          
+   22          ÏÂÔØÊ±, Ñ¡ÔñÊ±ÖÓ 24MHz (¿ÉÒÔÔÚÅäÖÃÎÄ¼þ"config.h"ÖÐÐÞ¸Ä).
+   23          
+   24          ******************************************/
+   25          
+   26          bit DmaTx1Flag;
+   27          bit DmaRx1Flag;
+   28          bit DmaTx2Flag;
+   29          bit DmaRx2Flag;
+   30          bit DmaTx3Flag;
+   31          bit DmaRx3Flag;
+   32          bit DmaTx4Flag;
+   33          bit DmaRx4Flag;
+   34          
+   35          #define DMA_Buffer_len 6
+   36          u8 xdata DmaBuffer[DMA_Buffer_len]; // ÊÕ·¢¹²ÓÃ»º´æ£¬Í¬Ê±Ê¹ÓÃ¶àÂ·´®¿ÚÊ±Ã¿¸ö´®¿ÚÐè·Ö±ð¶¨Òå»º´æ£¬ÒÔÃâÏà»¥¸É
+             -ÈÅ
+   37          u16 i_A = 0;
+   38          u16 i_B = 0;
+   39          
+   40          u8 code ledNum[] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80};
+   41          u8 ledIndex;
+   42          
+   43          #define ADC_CH 16  /* 1~16, ADC×ª»»Í¨µÀÊý, ÐèÍ¬²½ÐÞ¸Ä×ª»»Í¨µÀ */
+   44          #define ADC_DATA 6 /* 6~n, Ã¿¸öÍ¨µÀADC×ª»»Êý¾Ý×ÜÊý, 2*×ª»»´ÎÊý+4, ÐèÍ¬²½ÐÞ¸Ä×ª»»´ÎÊý */
+   45          
+   46          typedef union
+   47          {
+   48            u8 data8[2];
+   49            u16 data16;
+   50          } ADC_DMA_Data_Union;
+   51          
+   52          u8 chn = 0;
+   53          bit DmaADCFlag = 0;
+   54          ADC_DMA_Data_Union xdata DmaAdBuffer[ADC_CH][ADC_DATA];
+   55          
+   56          float roat = 0;
+C251 COMPILER V5.60.0,  main                                                               14/05/23  18:17:52  PAGE 2   
+
+   57          
+   58          Car_t hcar = {0};
+   59          
+   60          pid_t PID_direction = {0, 0, 0, {0, 0, 0}, 0.7, 0, 1, 0, 0};
+   61          /*************  Íâ²¿º¯ÊýºÍ±äÁ¿ÉùÃ÷ *****************/
+   62          
+   63          /******************** IO¿ÚÅäÖÃ ********************/
+   64          // void GPIO_config(void)
+   65          //{
+   66          //  //  P3_MODE_IO_PU(GPIO_Pin_0 | GPIO_Pin_1); //P3.0,P3.1 ÉèÖÃÎª×¼Ë«Ïò¿Ú - UART1
+   67          //      P4_MODE_IO_PU(GPIO_Pin_6 | GPIO_Pin_7); // P4.6,P4.7 ÉèÖÃÎª×¼Ë«Ïò¿Ú - UART2
+   68          //  //  P0_MODE_IO_PU(GPIO_Pin_0 | GPIO_Pin_1); //P0.0,P0.1 ÉèÖÃÎª×¼Ë«Ïò¿Ú - UART3
+   69          //  //  P0_MODE_IO_PU(GPIO_Pin_2 | GPIO_Pin_3); //P0.2,P0.3 ÉèÖÃÎª×¼Ë«Ïò¿Ú - UART4
+   70          //  P2_MODE_IO_PU(GPIO_Pin_0 | GPIO_Pin_1);
+   71          // }
+   72          
+   73          ///******************** UARTÅäÖÃ ********************/
+   74          // void UART_config(void)
+   75          //{
+   76          //  COMx_InitDefine COMx_InitStructure; // ½á¹¹¶¨Òå
+   77          
+   78          //  COMx_InitStructure.UART_Mode = UART_8bit_BRTx; // Ä£Ê½,   UART_ShiftRight,UART_8bit_BRTx,UART_9bit,UAR
+             -T_9bit_BRTx
+   79          //  COMx_InitStructure.UART_BRT_Use = BRT_Timer2;  // Ñ¡Ôñ²¨ÌØÂÊ·¢ÉúÆ÷, BRT_Timer1, BRT_Timer2 (×¢Òâ: ´®¿Ú
+             -2¹Ì¶¨Ê¹ÓÃBRT_Timer2)
+   80          //  COMx_InitStructure.UART_BaudRate = 115200ul;   // ²¨ÌØÂÊ,     110 ~ 115200
+   81          //  COMx_InitStructure.UART_RxEnable = ENABLE;     // ½ÓÊÕÔÊÐí,   ENABLE»òDISABLE
+   82          //  //  UART_Configuration(UART1, &COMx_InitStructure);   //³õÊ¼»¯´®¿Ú UART1,UART2,UART3,UART4
+   83          //  //  NVIC_UART1_Init(ENABLE,Priority_0);   //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0,Priority
+             -_1,Priority_2,Priority_3
+   84          //  UART_Configuration(UART2, &COMx_InitStructure); // ³õÊ¼»¯´®¿Ú UART1,UART2,UART3,UART4
+   85          //  NVIC_UART2_Init(ENABLE, Priority_0);      // ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0,Priority
+             -_1,Priority_2,Priority_3
+   86          //  //  UART_Configuration(UART3, &COMx_InitStructure);   //³õÊ¼»¯´®¿Ú UART1,UART2,UART3,UART4
+   87          //  //  NVIC_UART3_Init(ENABLE,Priority_0);   //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0,Priority
+             -_1,Priority_2,Priority_3
+   88          //  //  UART_Configuration(UART4, &COMx_InitStructure);   //³õÊ¼»¯´®¿Ú UART1,UART2,UART3,UART4
+   89          //  //  NVIC_UART4_Init(ENABLE,Priority_0);   //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0,Priority
+             -_1,Priority_2,Priority_3
+   90          
+   91          //  //  UART1_SW(UART1_SW_P30_P31);   //UART1_SW_P30_P31,UART1_SW_P36_P37,UART1_SW_P16_P17,UART1_SW_P43_P44
+   92          //  UART2_SW(UART2_SW_P46_P47); // UART2_SW_P10_P11,UART2_SW_P46_P47
+   93          //  //  UART3_SW(UART3_SW_P00_P01);   //UART3_SW_P00_P01,UART3_SW_P50_P51
+   94          //  //  UART4_SW(UART4_SW_P02_P03);   //UART4_SW_P02_P03,UART4_SW_P52_P53
+   95          //}
+   96          
+   97          /******************** DMA ÅäÖÃ ********************/
+   98          void DMA_UART_config(void)
+   99          {
+  100   1      
+  101   1        DMA_UART_InitTypeDef DMA_UART_InitStructure; // ½á¹¹¶¨Òå
+  102   1      
+  103   1        DMA_UART_InitStructure.DMA_TX_Length = DMA_Buffer_len - 1; // DMA´«Êä×Ü×Ö½ÚÊý   (0~65535) + 1
+  104   1        DMA_UART_InitStructure.DMA_TX_Buffer = (u16)DmaBuffer;     // ·¢ËÍÊý¾Ý´æ´¢µØÖ·
+  105   1        //  DMA_UART_InitStructure.DMA_RX_Length = 255;       //DMA´«Êä×Ü×Ö½ÚÊý   (0~65535) + 1
+  106   1        //  DMA_UART_InitStructure.DMA_RX_Buffer = (u16)DmaBuffer;  //½ÓÊÕÊý¾Ý´æ´¢µØÖ·
+  107   1        DMA_UART_InitStructure.DMA_TX_Enable = ENABLE; // DMAÊ¹ÄÜ   ENABLE,DISABLE
+  108   1        //  DMA_UART_InitStructure.DMA_RX_Enable = ENABLE;    //DMAÊ¹ÄÜ   ENABLE,DISABLE
+  109   1        //  DMA_UART_Inilize(UART1, &DMA_UART_InitStructure); //³õÊ¼»¯
+  110   1        DMA_UART_Inilize(UART2, &DMA_UART_InitStructure); // ³õÊ¼»¯
+  111   1        //  DMA_UART_Inilize(UART3, &DMA_UART_InitStructure); //³õÊ¼»¯
+  112   1        //  DMA_UART_Inilize(UART4, &DMA_UART_InitStructure); //³õÊ¼»¯
+  113   1      
+  114   1        //  NVIC_DMA_UART1_Tx_Init(ENABLE,Priority_0,Priority_0);   //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Pri
+             -ority_0~Priority_3; ×ÜÏßÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0~Priority_3
+  115   1        //  NVIC_DMA_UART1_Rx_Init(ENABLE,Priority_0,Priority_0);   //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Pri
+C251 COMPILER V5.60.0,  main                                                               14/05/23  18:17:52  PAGE 3   
+
+             -ority_0~Priority_3; ×ÜÏßÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0~Priority_3
+  116   1        NVIC_DMA_UART2_Tx_Init(ENABLE, Priority_2, Priority_2); // ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Prio
+             -rity_0~Priority_3; ×ÜÏßÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0~Priority_3
+  117   1        //  NVIC_DMA_UART2_Rx_Init(ENABLE,Priority_0,Priority_0);   //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Pri
+             -ority_0~Priority_3; ×ÜÏßÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0~Priority_3
+  118   1        //  NVIC_DMA_UART3_Tx_Init(ENABLE,Priority_0,Priority_0);   //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Pri
+             -ority_0~Priority_3; ×ÜÏßÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0~Priority_3
+  119   1        //  NVIC_DMA_UART3_Rx_Init(ENABLE,Priority_0,Priority_0);   //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Pri
+             -ority_0~Priority_3; ×ÜÏßÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0~Priority_3
+  120   1        //  NVIC_DMA_UART4_Tx_Init(ENABLE,Priority_0,Priority_0);   //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Pri
+             -ority_0~Priority_3; ×ÜÏßÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0~Priority_3
+  121   1        //  NVIC_DMA_UART4_Rx_Init(ENABLE,Priority_0,Priority_0);   //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Pri
+             -ority_0~Priority_3; ×ÜÏßÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0~Priority_3
+  122   1      
+  123   1        //  DMA_UR1R_CLRFIFO();   //Çå¿Õ DMA FIFO
+  124   1        DMA_UR2R_CLRFIFO(); // Çå¿Õ DMA FIFO
+  125   1                  //  DMA_UR3R_CLRFIFO();   //Çå¿Õ DMA FIFO
+  126   1                  //  DMA_UR4R_CLRFIFO();   //Çå¿Õ DMA FIFO
+  127   1      }
+  128          
+  129          void GPIO_config(void)
+  130          {
+  131   1        P0_MODE_IN_HIZ(GPIO_Pin_LOW | GPIO_Pin_4 | GPIO_Pin_5 | GPIO_Pin_6); // P0.0~P0.6 ÉèÖÃÎª¸ß×èÊäÈë
+  132   1      
+  133   1        P1_MODE_IN_HIZ(GPIO_Pin_All); // P1.0~P1.7 ÉèÖÃÎª¸ß×èÊäÈë
+  134   1      
+  135   1        P2_MODE_IO_PU(GPIO_Pin_All);
+  136   1      
+  137   1        P4_MODE_IO_PU(GPIO_Pin_6 | GPIO_Pin_7); // P4.6,P4.7 ÉèÖÃÎª×¼Ë«Ïò¿Ú - UART2
+  138   1                            // P2_MODE_IO_PU(GPIO_Pin_0 | GPIO_Pin_1);
+  139   1      }
+  140          void UART_config(void)
+  141          {
+  142   1        //    COMx_InitDefine COMx_InitStructure; // ½á¹¹¶¨Òå
+  143   1      
+  144   1        //  COMx_InitStructure.UART_Mode = UART_8bit_BRTx; // Ä£Ê½,   UART_ShiftRight,UART_8bit_BRTx,UART_9bit,UA
+             -RT_9bit_BRTx
+  145   1        //  //  COMx_InitStructure.UART_BRT_Use   = BRT_Timer2;     //Ñ¡Ôñ²¨ÌØÂÊ·¢ÉúÆ÷, BRT_Timer2 (×¢Òâ: ´®¿Ú2¹Ì¶¨Ê
+             -¹ÓÃBRT_Timer2, ËùÒÔ²»ÓÃÑ¡Ôñ)
+  146   1        //  COMx_InitStructure.UART_BaudRate = 115200ul;  // ²¨ÌØÂÊ,     110 ~ 115200
+  147   1        //  COMx_InitStructure.UART_RxEnable = ENABLE;    // ½ÓÊÕÔÊÐí,   ENABLE »ò DISABLE
+  148   1        //  UART_Configuration(UART2, &COMx_InitStructure); // ³õÊ¼»¯´®¿Ú2 UART1,UART2,UART3,UART4
+  149   1        //  while (NVIC_UART2_Init((u8)ENABLE, (u8)Priority_1) != SUCCESS)
+  150   1        //    ; // ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0,Priority_1,Priority_2,Priority_3
+  151   1      
+  152   1        //  UART2_SW(UART2_SW_P46_P47); // UART2_SW_P10_P11,UART2_SW_P46_P47
+  153   1      
+  154   1        COMx_InitDefine COMx_InitStructure; // ½á¹¹¶¨Òå
+  155   1      
+  156   1        COMx_InitStructure.UART_Mode = UART_8bit_BRTx; // Ä£Ê½,   UART_ShiftRight,UART_8bit_BRTx,UART_9bit,UART_
+             -9bit_BRTx
+  157   1        COMx_InitStructure.UART_BRT_Use = BRT_Timer2;  // Ñ¡Ôñ²¨ÌØÂÊ·¢ÉúÆ÷, BRT_Timer1, BRT_Timer2 (×¢Òâ: ´®¿Ú2¹
+             -Ì¶¨Ê¹ÓÃBRT_Timer2)
+  158   1        COMx_InitStructure.UART_BaudRate = 115200ul;   // ²¨ÌØÂÊ,     110 ~ 115200
+  159   1        COMx_InitStructure.UART_RxEnable = ENABLE;     // ½ÓÊÕÔÊÐí,   ENABLE»òDISABLE
+  160   1        //  UART_Configuration(UART1, &COMx_InitStructure);   //³õÊ¼»¯´®¿Ú UART1,UART2,UART3,UART4
+  161   1        //  NVIC_UART1_Init(ENABLE,Priority_0);   //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0,Priority_1
+             -,Priority_2,Priority_3
+  162   1        UART_Configuration(UART2, &COMx_InitStructure); // ³õÊ¼»¯´®¿Ú UART1,UART2,UART3,UART4
+  163   1        NVIC_UART2_Init(ENABLE, Priority_0);      // ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0,Priority_1
+             -,Priority_2,Priority_3
+  164   1        //  UART_Configuration(UART3, &COMx_InitStructure);   //³õÊ¼»¯´®¿Ú UART1,UART2,UART3,UART4
+  165   1        //  NVIC_UART3_Init(ENABLE,Priority_0);   //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0,Priority_1
+             -,Priority_2,Priority_3
+  166   1        //  UART_Configuration(UART4, &COMx_InitStructure);   //³õÊ¼»¯´®¿Ú UART1,UART2,UART3,UART4
+  167   1        //  NVIC_UART4_Init(ENABLE,Priority_0);   //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0,Priority_1
+C251 COMPILER V5.60.0,  main                                                               14/05/23  18:17:52  PAGE 4   
+
+             -,Priority_2,Priority_3
+  168   1      
+  169   1        //  UART1_SW(UART1_SW_P30_P31);   //UART1_SW_P30_P31,UART1_SW_P36_P37,UART1_SW_P16_P17,UART1_SW_P43_P44
+  170   1        UART2_SW(UART2_SW_P46_P47); // UART2_SW_P10_P11,UART2_SW_P46_P47
+  171   1                      //  UART3_SW(UART3_SW_P00_P01);   //UART3_SW_P00_P01,UART3_SW_P50_P51
+  172   1                      //  UART4_SW(UART4_SW_P02_P03);   //UART4_SW_P02_P03,UART4_SW_P52_P53
+  173   1      }
+  174          
+  175          /******************** ADC ÅäÖÃ ********************/
+  176          void ADC_config(void)
+  177          {
+  178   1        ADC_InitTypeDef ADC_InitStructure; // ½á¹¹¶¨Òå
+  179   1      
+  180   1        ADC_InitStructure.ADC_SMPduty = 31;            // ADC Ä£ÄâÐÅºÅ²ÉÑùÊ±¼ä¿ØÖÆ, 0~31£¨×¢Òâ£º SMPDUTY Ò»¶¨²»ÄÜÉèÖ
+             -ÃÐ¡ÓÚ 10£©
+  181   1        ADC_InitStructure.ADC_CsSetup = 0;             // ADC Í¨µÀÑ¡ÔñÊ±¼ä¿ØÖÆ 0(Ä¬ÈÏ),1
+  182   1        ADC_InitStructure.ADC_CsHold = 1;            // ADC Í¨µÀÑ¡Ôñ±£³ÖÊ±¼ä¿ØÖÆ 0,1(Ä¬ÈÏ),2,3
+  183   1        ADC_InitStructure.ADC_Speed = ADC_SPEED_2X16T;       // ÉèÖÃ ADC ¹¤×÷Ê±ÖÓÆµÂÊ ADC_SPEED_2X1T~ADC_SPEED_2X1
+             -6T
+  184   1        ADC_InitStructure.ADC_AdjResult = ADC_RIGHT_JUSTIFIED; // ADC½á¹ûµ÷Õû,  ADC_LEFT_JUSTIFIED,ADC_RIGHT_JUST
+             -IFIED
+  185   1        ADC_Inilize(&ADC_InitStructure);             // ³õÊ¼»¯
+  186   1        ADC_PowerControl(ENABLE);                // ADCµçÔ´¿ª¹Ø, ENABLE»òDISABLE
+  187   1        NVIC_ADC_Init(DISABLE, Priority_0);            // ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0,Priori
+             -ty_1,Priority_2,Priority_3
+  188   1      }
+  189          /******************** DMA ÅäÖÃ ********************/
+  190          void DMA_ADC_config(void)
+  191          {
+  192   1        //***********DMA_ADC**************
+  193   1      
+  194   1        DMA_ADC_InitTypeDef DMA_ADC_InitStructure; // ½á¹¹¶¨Òå
+  195   1      
+  196   1        DMA_ADC_InitStructure.DMA_Enable = ENABLE;       // DMAÊ¹ÄÜ   ENABLE,DISABLE
+  197   1        DMA_ADC_InitStructure.DMA_Channel = 0xffff;      // ADCÍ¨µÀÊ¹ÄÜ¼Ä´æÆ÷, 1:Ê¹ÄÜ, bit15~bit0 ¶ÔÓ¦ ADC15~ADC0
+  198   1        DMA_ADC_InitStructure.DMA_Buffer = (u16)DmaAdBuffer; // ADC×ª»»Êý¾Ý´æ´¢µØÖ·
+  199   1        DMA_ADC_InitStructure.DMA_Times = ADC_4_Times;     // Ã¿¸öÍ¨µÀ×ª»»´ÎÊý, ADC_1_Times,ADC_2_Times,ADC_4_Time
+             -s,ADC_8_Times,ADC_16_Times,ADC_32_Times,ADC_64_Times,ADC_128_Times,ADC_256_Times
+  200   1        DMA_ADC_Inilize(&DMA_ADC_InitStructure);       // ³õÊ¼»¯
+  201   1        NVIC_DMA_ADC_Init(ENABLE, Priority_3, Priority_3);   // ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Priority
+             -_0~Priority_3; ×ÜÏßÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0~Priority_3
+  202   1        DMA_ADC_TRIG();                    // ´¥·¢Æô¶¯×ª»»
+  203   1      }
+  204          
+  205          /*************  ¹¦ÄÜËµÃ÷  **************
+  206          
+  207          ³ÌÐòÑÝÊ¾5¸ö¶¨Ê±Æ÷µÄÊ¹ÓÃ, ¾ùÊ¹ÓÃ16Î»×Ô¶¯ÖØ×°.
+  208          
+  209          ¶¨Ê±Æ÷0×ö16Î»×Ô¶¯ÖØ×°, ÖÐ¶ÏÆµÂÊÎª100000Hz£¬ÖÐ¶Ïº¯Êý´ÓP6.7È¡·´Êä³ö50KHz·½²¨ÐÅºÅ.
+  210          
+  211          ¶¨Ê±Æ÷1×ö16Î»×Ô¶¯ÖØ×°, ÖÐ¶ÏÆµÂÊÎª10000Hz£¬ÖÐ¶Ïº¯Êý´ÓP6.6È¡·´Êä³ö5KHz·½²¨ÐÅºÅ.
+  212          
+  213          ¶¨Ê±Æ÷2×ö16Î»×Ô¶¯ÖØ×°, ÖÐ¶ÏÆµÂÊÎª1000Hz£¬ÖÐ¶Ïº¯Êý´ÓP6.5È¡·´Êä³ö500Hz·½²¨ÐÅºÅ.
+  214          
+  215          ¶¨Ê±Æ÷3×ö16Î»×Ô¶¯ÖØ×°, ÖÐ¶ÏÆµÂÊÎª100Hz£¬ÖÐ¶Ïº¯Êý´ÓP6.4È¡·´Êä³ö50Hz·½²¨ÐÅºÅ.
+  216          
+  217          ¶¨Ê±Æ÷4×ö16Î»×Ô¶¯ÖØ×°, ÖÐ¶ÏÆµÂÊÎª50Hz£¬ÖÐ¶Ïº¯Êý´ÓP6.3È¡·´Êä³ö25Hz·½²¨ÐÅºÅ.
+  218          
+  219          ÏÂÔØÊ±, Ñ¡ÔñÊ±ÖÓ 24MHz (¿ÉÒÔÔÚÅäÖÃÎÄ¼þ"config.h"ÖÐÐÞ¸Ä).
+  220          
+  221          ******************************************/
+  222          /************************ ¶¨Ê±Æ÷ÅäÖÃ ****************************/
+  223          void Timer_config(void)
+  224          {
+  225   1        TIM_InitTypeDef TIM_InitStructure; // ½á¹¹¶¨Òå
+  226   1        //  TIM_InitStructure.TIM_Mode      = TIM_16BitAutoReload;  //Ö¸¶¨¹¤×÷Ä£Ê½,   TIM_16BitAutoReload,TIM_16Bi
+C251 COMPILER V5.60.0,  main                                                               14/05/23  18:17:52  PAGE 5   
+
+             -t,TIM_8BitAutoReload,TIM_16BitAutoReloadNoMask
+  227   1        //  TIM_InitStructure.TIM_ClkSource = TIM_CLOCK_1T;   //Ö¸¶¨Ê±ÖÓÔ´,     TIM_CLOCK_1T,TIM_CLOCK_12T,TIM_CLO
+             -CK_Ext
+  228   1        //  TIM_InitStructure.TIM_ClkOut    = DISABLE;        //ÊÇ·ñÊä³ö¸ßËÙÂö³å, ENABLE»òDISABLE
+  229   1        //  TIM_InitStructure.TIM_Value     = (u16)(65536UL - (MAIN_Fosc / 100000UL));    //³õÖµ,
+  230   1        //  TIM_InitStructure.TIM_Run       = ENABLE;         //ÊÇ·ñ³õÊ¼»¯ºóÆô¶¯¶¨Ê±Æ÷, ENABLE»òDISABLE
+  231   1        //  Timer_Inilize(Timer0,&TIM_InitStructure);         //³õÊ¼»¯Timer0    Timer0,Timer1,Timer2,Timer3,Timer4
+  232   1        //  NVIC_Timer0_Init(ENABLE,Priority_0);    //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0,Priority_
+             -1,Priority_2,Priority_3
+  233   1      
+  234   1        //  TIM_InitStructure.TIM_Mode      = TIM_16BitAutoReload;  //Ö¸¶¨¹¤×÷Ä£Ê½,   TIM_16BitAutoReload,TIM_16Bi
+             -t,TIM_8BitAutoReload,TIM_16BitAutoReloadNoMask
+  235   1        //  TIM_InitStructure.TIM_ClkSource = TIM_CLOCK_1T;   //Ö¸¶¨Ê±ÖÓÔ´, TIM_CLOCK_1T,TIM_CLOCK_12T,TIM_CLOCK_E
+             -xt
+  236   1        //  TIM_InitStructure.TIM_ClkOut    = DISABLE;        //ÊÇ·ñÊä³ö¸ßËÙÂö³å, ENABLE»òDISABLE
+  237   1        //  TIM_InitStructure.TIM_Value     = (u16)(65536UL - (MAIN_Fosc / 10000));     //³õÖµ,
+  238   1        //  TIM_InitStructure.TIM_Run       = ENABLE;         //ÊÇ·ñ³õÊ¼»¯ºóÆô¶¯¶¨Ê±Æ÷, ENABLE»òDISABLE
+  239   1        //  Timer_Inilize(Timer1,&TIM_InitStructure);         //³õÊ¼»¯Timer1    Timer0,Timer1,Timer2,Timer3,Timer4
+  240   1        //  NVIC_Timer1_Init(ENABLE,Priority_0);    //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÓÅÏÈ¼¶(µÍµ½¸ß) Priority_0,Priority_
+             -1,Priority_2,Priority_3
+  241   1      
+  242   1        //  TIM_InitStructure.TIM_ClkSource = TIM_CLOCK_1T;   //Ö¸¶¨Ê±ÖÓÔ´,     TIM_CLOCK_1T,TIM_CLOCK_12T,TIM_CLO
+             -CK_Ext
+  243   1        //  TIM_InitStructure.TIM_ClkOut    = DISABLE;        //ÊÇ·ñÊä³ö¸ßËÙÂö³å, ENABLE»òDISABLE
+  244   1        //  TIM_InitStructure.TIM_Value     = (u16)(65536UL - (MAIN_Fosc / 1000));        //³õÖµ
+  245   1        //  TIM_InitStructure.TIM_Run       = ENABLE;         //ÊÇ·ñ³õÊ¼»¯ºóÆô¶¯¶¨Ê±Æ÷, ENABLE»òDISABLE
+  246   1        //  Timer_Inilize(Timer2,&TIM_InitStructure);         //³õÊ¼»¯Timer2    Timer0,Timer1,Timer2,Timer3,Timer4
+  247   1        //  NVIC_Timer2_Init(ENABLE,NULL);    //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÎÞÓÅÏÈ¼¶
+  248   1      
+  249   1        //  TIM_InitStructure.TIM_ClkSource = TIM_CLOCK_12T;  //Ö¸¶¨Ê±ÖÓÔ´,     TIM_CLOCK_1T,TIM_CLOCK_12T,TIM_CLO
+             -CK_Ext
+  250   1        //  TIM_InitStructure.TIM_ClkOut    = ENABLE;         //ÊÇ·ñÊä³ö¸ßËÙÂö³å, ENABLE»òDISABLE
+  251   1        //  TIM_InitStructure.TIM_Value     = (u16)(65536UL - (MAIN_Fosc / (100*12)));    //³õÖµ
+  252   1        //  TIM_InitStructure.TIM_Run       = ENABLE;         //ÊÇ·ñ³õÊ¼»¯ºóÆô¶¯¶¨Ê±Æ÷, ENABLE»òDISABLE
+  253   1        //  Timer_Inilize(Timer3,&TIM_InitStructure);         //³õÊ¼»¯Timer3    Timer0,Timer1,Timer2,Timer3,Timer4
+  254   1        //  NVIC_Timer3_Init(ENABLE,NULL);    //ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÎÞÓÅÏÈ¼¶
+  255   1      
+  256   1        TIM_InitStructure.TIM_ClkSource = TIM_CLOCK_12T; // Ö¸¶¨Ê±ÖÓÔ´,     TIM_CLOCK_1T,TIM_CLOCK_12T,TIM_CLOCK
+             -_Ext
+  257   1        TIM_InitStructure.TIM_ClkOut = ENABLE;       // ÊÇ·ñÊä³ö¸ßËÙÂö³å, ENABLE»òDISABLE
+  258   1        //  TIM_InitStructure.TIM_Value     = (u16)(65536UL - (MAIN_Fosc / (1000*12)));   //³õÖµ
+  259   1        TIM_InitStructure.TIM_Value = (u16)(65536UL - (MAIN_Fosc / (500 * 12)));
+  260   1        TIM_InitStructure.TIM_Run = ENABLE;      // ÊÇ·ñ³õÊ¼»¯ºóÆô¶¯¶¨Ê±Æ÷, ENABLE»òDISABLE
+  261   1        Timer_Inilize(Timer4, &TIM_InitStructure); // ³õÊ¼»¯Timer4    Timer0,Timer1,Timer2,Timer3,Timer4
+  262   1        NVIC_Timer4_Init(ENABLE, NULL);        // ÖÐ¶ÏÊ¹ÄÜ, ENABLE/DISABLE; ÎÞÓÅÏÈ¼¶
+  263   1      }
+  264          
+  265          LineHunting_t hLineHunting = {{1, 1, 1}, {1, 1, 1}, 1, {1, 1, 1}};
+  266          
+  267          void speed_transfer(u8 *DmaTxBuffer, u16 left_speed, u16 right_speed)
+  268          {
+  269   1        DmaTxBuffer[0] = 0x5A;
+  270   1        DmaTxBuffer[3] = (u8)(left_speed >> 8);
+  271   1        DmaTxBuffer[4] = (u8)(left_speed);
+  272   1        DmaTxBuffer[1] = (u8)(right_speed >> 8);
+  273   1        DmaTxBuffer[2] = (u8)(right_speed);
+  274   1        DmaTxBuffer[5] = 0xA5;
+  275   1        DMA_UR2T_TRIG();
+  276   1      }
+  277          
+  278          void Vcar_2_Vref_transfer(Car_t *hcar)
+  279          {
+  280   1        hcar->Vref_left = 1 * (hcar->V_forward_car) - 1 * (hcar->V_roat_car);
+  281   1        hcar->Vref_right = 1 * (hcar->V_forward_car) + 1 * (hcar->V_roat_car);
+  282   1      }
+  283          void vref_2_data_transfer(Car_t *hcar)
+C251 COMPILER V5.60.0,  main                                                               14/05/23  18:17:52  PAGE 6   
+
+  284          {
+  285   1        hcar->Vref_left_datatx = (u16)(hcar->Vref_left) + 0x8000;
+  286   1        hcar->Vref_right_datatx = (u16)(hcar->Vref_right) + 0x8000;
+  287   1      }
+  288          void Car_speed_set(Car_t *hcar, float V_forward_car, float V_roat_car)
+  289          {
+  290   1        hcar->V_forward_car = V_forward_car;
+  291   1        hcar->V_roat_car = V_roat_car;
+  292   1        Vcar_2_Vref_transfer(hcar);
+  293   1        vref_2_data_transfer(hcar);
+  294   1        speed_transfer(DmaBuffer, hcar->Vref_left_datatx, hcar->Vref_right_datatx);
+  295   1      }
+  296          
+  297          // void PWMA_config(void){
+  298          //  PWMA_CR2=0x10;
+  299          //  PWMA_ARRH=0x13;
+  300          //  PWMA_ARRL=0x38;
+  301          //  PWMA_IER=0x01;
+  302          //  PWMA_CR1=0x01;
+  303          // }
+  304          
+  305          // void TIM_Callback(TIM_HandleTypeDef* htim){
+  306          //  if(htim->Instance==TIM4){
+  307          //    P20 = ~P20;
+  308          //  }
+  309          // }
+  310          
+  311          void TIM4_Callback()
+  312          {
+  313   1      
+  314   1        DMA_ADC_TRIG();
+  315   1      }
+  316          
+  317          // void LineHunting_ADC_fill_in(LineHunting_t* line){
+  318          // hLineHunting.LineHunting_adc[0]=(DmaAdBuffer[0][5].data16);
+  319          // hLineHunting.LineHunting_adc[1]=(DmaAdBuffer[1][5].data16);
+  320          // hLineHunting.LineHunting_adc[2]=(DmaAdBuffer[2][5].data16);
+  321          // }
+  322          
+  323          float Sensor_Left,
+  324            Sensor_Middle,
+  325            Sensor_Right,
+  326            Sensor_Left_M,
+  327            Sensor_Right_M,
+  328            sum,
+  329            Sensor, Bias, Last_Bias,
+  330            Velocity, Angle,
+  331            kA, kB, kC, kD;
+  332          float gyro_buffer[3], acc_buffer[3];
+  333          float roat_speed_action, roat_speed_aim, roat_speed_current, roat_speed_err, roat_speed_err_last = 0;
+  334          void STC32G_DMA_ADC_IRQHandler()
+  335          {
+  336   1      
+  337   1        // LineHunting_ADC_fill_in(&hLineHunting);
+  338   1        hLineHunting.LineHunting_adc[0] = (float)(DmaAdBuffer[0][5].data16);
+  339   1        hLineHunting.LineHunting_adc[1] = (float)(DmaAdBuffer[1][5].data16);
+  340   1        hLineHunting.LineHunting_adc[2] = (float)(DmaAdBuffer[3][5].data16);
+  341   1        hLineHunting.LineHunting_adc[3] = (float)(DmaAdBuffer[4][5].data16);
+  342   1        hLineHunting.LineHunting_adc[4] = (float)(DmaAdBuffer[5][5].data16);
+  343   1        hLineHunting.LineHunting_adc[5] = (float)(DmaAdBuffer[6][5].data16);
+  344   1        hLineHunting.LineHunting_adc[6] = (float)(DmaAdBuffer[7][5].data16);
+  345   1      
+  346   1        Sensor_Left = hLineHunting.LineHunting_adc[6];   // ×ó±ßµç¸Ð²É¼¯Öµ
+  347   1        Sensor_Middle = hLineHunting.LineHunting_adc[3]; // ÖÐ¼äµç¸Ð²É¼¯Öµ
+  348   1        Sensor_Right = hLineHunting.LineHunting_adc[0];  // ÓÒ±ßµç¸Ð²É¼¯Öµ
+  349   1      
+C251 COMPILER V5.60.0,  main                                                               14/05/23  18:17:52  PAGE 7   
+
+  350   1        Sensor_Left_M = hLineHunting.LineHunting_adc[0];  // ×ó±ßµç¸Ð²É¼¯Öµ
+  351   1        Sensor_Right_M = hLineHunting.LineHunting_adc[5]; // ÓÒ±ßµç¸Ð²É¼¯Öµ
+  352   1      
+  353   1        // if (Sensor_Left + Sensor_Middle + Sensor_Right > 25)
+  354   1        // {
+  355   1        //  sum = sqrt(Sensor_Left) * 1 + Sensor_Middle * 50 + sqrt(Sensor_Right) * 99; // ¹éÒ»»¯´¦Àí
+  356   1        //  Sensor = sum / (Sensor_Left + Sensor_Middle + Sensor_Right);  // ÇóÆ«²î
+  357   1        // }
+  358   1        // //Velocity = 35;                 // µç´ÅÑ²ÏßÄ£Ê½ÏÂµÄËÙ¶È
+  359   1        // Bias = Sensor - 50;                // ÌáÈ¡Æ«²î
+  360   1        kB = 0.1;
+  361   1        if (Sensor_Left + Sensor_Middle + Sensor_Right > 25)
+  362   1        {
+  363   2          // Bias = 50.0 * ((1 * (Sensor_Left - Sensor_Right) +
+  364   2          //        kB * (Sensor_Left_M - Sensor_Right_M)) /
+  365   2          //         (1 * (Sensor_Left + Sensor_Right) +
+  366   2          //        kB * (Sensor_Left_M + Sensor_Right_M)));
+  367   2      
+  368   2          Bias = 50.0 * (
+  369   2                  ( (Sensor_Left - Sensor_Right) )   /
+  370   2                    ( (Sensor_Left + Sensor_Right) )
+  371   2                   );
+  372   2      
+  373   2          if (fabs(Bias) < 0.5)
+  374   2            Bias = 0;
+  375   2        }
+  376   1        else
+  377   1        {
+  378   2          Bias = 0;
+  379   2        }
+  380   1        Angle = Bias * (280.0f) + (Bias - Last_Bias) * (-100.0f); // ·½ÏòPID*/ Íâ²àË«µç¸Ð
+  381   1        // Angle = Bias * (280.0f) + (Bias - Last_Bias) * (-80.0f); // ·½ÏòPID*/ ÄÚ²àË«µç¸Ð
+  382   1        //  Angle = abs(Bias)*Bias * 0.02 + Bias * 0.074 + (Bias - Last_Bias) * 1;
+  383   1        Last_Bias = Bias; // ÉÏÒ»´ÎµÄÆ«²î
+  384   1      
+  385   1        // bias = LineHunting_process(&hLineHunting);
+  386   1        //  if((bias-bias_old)>50 && ((bias-bias_old)<-50)){
+  387   1        //    bias = bias_old; //update
+  388   1        //  }
+  389   1        // roat_speed_aim = -0.065f * Angle;
+  390   1      
+  391   1        // MPU6500_get_buffer(gyro_buffer, acc_buffer);
+  392   1        // if (fabs(gyro_buffer[2]) > 8.5)
+  393   1        // {
+  394   1        //  roat_speed_current = -gyro_buffer[2];
+  395   1        // }
+  396   1        // else
+  397   1        // {
+  398   1        //  roat_speed_current = 0;
+  399   1        // }
+  400   1      
+  401   1        // roat_speed_err = roat_speed_aim - roat_speed_current;
+  402   1        // roat_speed_action = (-16.0f) * (roat_speed_err) + (10.0f) * (roat_speed_err - roat_speed_err_last);
+  403   1        // roat_speed_err_last = roat_speed_err;
+  404   1      
+  405   1        //    roat=pid_process(&PID_direction,bias,0,6000,-6000);
+  406   1        // roat=arm_pid_f(&PID_direction,bias-0);
+  407   1      
+  408   1        //  if (hLineHunting.LineHunting_adc_normalize[1] < 50)
+  409   1        //  {
+  410   1        //    Car_speed_set(&hcar, 0, 0);
+  411   1        //  }
+  412   1        //  else
+  413   1        //  {
+  414   1        Car_speed_set(&hcar, 3500, Angle);
+  415   1        //  }
+C251 COMPILER V5.60.0,  main                                                               14/05/23  18:17:52  PAGE 8   
+
+  416   1      
+  417   1        // Car_speed_set(&hcar,0,0);
+  418   1        //  printf("ADC:%f,%f\n", (DmaAdBuffer[0][5].data16*2.5f/4096),(DmaAdBuffer[2][5].data16*2.5f/4096)); // 
+             -µÚ1×éÊý¾Ý,...,µÚn×éÊý¾Ý,ADÍ¨µÀ,Æ½¾ùÓàÊý,Æ½¾ùÖµ
+  419   1      
+  420   1        // DMA_ADC_TRIG(); // ÖØÐÂ´¥·¢Æô¶¯ÏÂÒ»´Î×ª»»
+  421   1      }
+  422          
+  423          void main(void)
+  424          {
+  425   1        WTST = 0;  // ÉèÖÃ³ÌÐòÖ¸ÁîÑÓÊ±²ÎÊý£¬¸³ÖµÎª0¿É½«CPUÖ´ÐÐÖ¸ÁîµÄËÙ¶ÈÉèÖÃÎª×î¿ì
+  426   1        EAXSFR();  // À©Õ¹SFR(XFR)·ÃÎÊÊ¹ÄÜ
+  427   1        CKCON = 0; // Ìá¸ß·ÃÎÊXRAMËÙ¶È
+  428   1        EA = 1;    // ´ò¿ª×ÜÖÐ¶Ï
+  429   1      
+  430   1        arm_pid_init_f(&PID_direction);
+  431   1      
+  432   1        GPIO_config();
+  433   1        UART_config();
+  434   1        ADC_config();
+  435   1        DMA_ADC_config();
+  436   1        DMA_UART_config();
+  437   1        Timer_config();
+  438   1      
+  439   1        P20 = 0; // ´ò¿ªÊµÑé°åLEDµçÔ´
+  440   1      
+  441   1        // u16 i,n;
+  442   1      
+  443   1        MPU6500_Init();
+  444   1      
+  445   1        delay_ms(500);
+  446   1      
+  447   1        hLineHunting.adc_init_val[0] = DmaAdBuffer[0][5].data16;
+  448   1        hLineHunting.adc_init_val[1] = DmaAdBuffer[1][5].data16;
+  449   1        hLineHunting.adc_init_val[2] = DmaAdBuffer[3][5].data16;
+  450   1      
+  451   1        while (1)
+  452   1        {
+  453   2          // printf("ADC:%f,%f,%f\n", (1000.0f*DmaAdBuffer[0][5].data16*1.0f/hLineHunting.adc_init_val[0]),(1000.
+             -0f*DmaAdBuffer[1][5].data16*1.0f/hLineHunting.adc_init_val[1]),(1000.0f*DmaAdBuffer[3][5].data16*1.0f/hLineHunting.adc_i
+             -nit_val[2])); // µÚ1×éÊý¾Ý,...,µÚn×éÊý¾Ý,ADÍ¨µÀ,Æ½¾ùÓàÊý,Æ½¾ùÖµ
+  454   2      
+  455   2          delay_ms(500);
+  456   2          P20 = ~P20;
+  457   2          // Car_speed_set(&hcar,700,260);
+  458   2          // DMA_ADC_TRIG(); // ÖØÐÂ´¥·¢Æô¶¯ÏÂÒ»´Î×ª»»
+  459   2      
+  460   2          //(*(unsigned char volatile  *)0x7e00a0)=~(*(unsigned char volatile  *)0x7e00a0);
+  461   2          // TX2_write2buff(0xAA);
+  462   2          // printf("%d\n", kA);
+  463   2        }
+  464   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =      1135     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =       198     ------
+  xdata-const size     =    ------     ------
+  edata size           =       330     ------
+  bit size             =         9     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+C251 COMPILER V5.60.0,  main                                                               14/05/23  18:17:52  PAGE 9   
+
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =       197     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

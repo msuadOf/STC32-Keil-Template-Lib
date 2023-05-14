@@ -1,0 +1,53 @@
+C251 COMPILER V5.60.0,  STC32G_ADC_Isr                                                     14/05/23  10:09:44  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE STC32G_ADC_Isr
+OBJECT MODULE PLACED IN .\MDK\Obj\STC32G_ADC_Isr.obj
+COMPILER INVOKED BY: D:\Program\Keil_v5\C251\BIN\C251.EXE Driver\Isr\STC32G_ADC_Isr.c XSMALL INTR2 OPTIMIZE(0,SPEED) BRO
+                    -WSE INCDIR(.\Driver;.\Driver\Inc;.\Driver\Isr;.\CORE\Inc;.\bsp\include) DEBUG PRINT(.\MDK\List\STC32G_ADC_Isr.lst) TABS(
+                    -2) OBJECT(.\MDK\Obj\STC32G_ADC_Isr.obj) 
+
+stmt  level    source
+
+    1          #include  "STC32G_ADC.h"
+    2          
+    3          //========================================================================
+    4          // 函数: ADC_ISR_Handler
+    5          // 描述: ADC中断函数.
+    6          // 参数: none.
+    7          // 返回: none.
+    8          // 版本: V1.0, 2020-09-23
+    9          //========================================================================
+   10          void ADC_ISR_Handler (void) interrupt ADC_VECTOR
+   11          {
+   12   1        ADC_FLAG = 0;     //清除中断标志
+   13   1        
+   14   1        // TODO: 在此处添加用户代码
+   15   1        
+   16   1      }
+   17          
+   18          
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =        12     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =    ------     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =    ------     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

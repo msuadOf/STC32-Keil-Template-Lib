@@ -149,7 +149,7 @@ u8 PWM_Configuration(u8 PWM, PWMx_InitDefine *PWMx)
 		return	SUCCESS;
 	}
 	
-	if(PWM == PWMA)
+	if(PWM == PWMA_CHANNEL)
 	{
 //		PWMA_OC1_ReloadEnable(PWMx->PWM_Reload);	//输出比较的预装载使能
 //		PWMA_OC1_FastEnable(PWMx->PWM_Fast);		//输出比较快速功能使能
@@ -247,7 +247,7 @@ u8 PWM_Configuration(u8 PWM, PWMx_InitDefine *PWMx)
 		return	SUCCESS;
 	}
 	
-	if(PWM == PWMB)
+	if(PWM == PWMB_CHANNEL)
 	{
 //		PWMB_OC5_ReloadEnable(PWMx->PWM_Reload);	//输出比较的预装载使能
 //		PWMB_OC5_FastEnable(PWMx->PWM_Fast);		//输出比较快速功能使能
@@ -307,14 +307,14 @@ void UpdatePwm(u8 PWM, PWMx_Duty *PWMx)
 			PWMB_Duty8(PWMx->PWM8_Duty);
 		break;
 
-		case PWMA:
+		case PWMA_CHANNEL:
 			PWMA_Duty1(PWMx->PWM1_Duty);
 			PWMA_Duty2(PWMx->PWM2_Duty);
 			PWMA_Duty3(PWMx->PWM3_Duty);
 			PWMA_Duty4(PWMx->PWM4_Duty);
 		break;
 
-		case PWMB:
+		case PWMB_CHANNEL:
 			PWMB_Duty5(PWMx->PWM5_Duty);
 			PWMB_Duty6(PWMx->PWM6_Duty);
 			PWMB_Duty7(PWMx->PWM7_Duty);
@@ -406,7 +406,7 @@ void HSPWM_Configuration(u8 PWM, HSPWMx_InitDefine *PWMx, PWMx_Duty *DUTYx)
 {
 	u8 tmpENO,tmpCCER1,tmpCCER2;
 	
-	if(PWM == PWMA)
+	if(PWM == PWMA_CHANNEL)
 	{
 		HSPWMA_CFG = 0x03;			//使能PWMA相关寄存器异步访问功能
 
@@ -515,7 +515,7 @@ void HSPWM_Configuration(u8 PWM, HSPWMx_InitDefine *PWMx, PWMx_Duty *DUTYx)
 		WritePWMA((u8)&PWMA_BRK, PWMx->PWM_MainOutEnable<<7);	//使能主输出
 		WritePWMA((u8)&PWMA_CR1, PWMx->PWM_CEN_Enable);				//开始PWM计数
 	}
-	else if(PWM == PWMB)
+	else if(PWM == PWMB_CHANNEL)
 	{
 		HSPWMB_CFG = 0x03;			//使能PWMB相关寄存器异步访问功能
 
@@ -637,7 +637,7 @@ void UpdateHSPwm(u8 PWM, PWMx_Duty *PWMx)
 			WritePWMB((u8)&PWMB_CCR8L, (u8)PWMx->PWM8_Duty);
 		break;
 
-		case PWMA:
+		case PWMA_CHANNEL:
 			WritePWMA((u8)&PWMA_CCR1H, (u8)(PWMx->PWM1_Duty >> 8));	//设置输出PWM的占空比
 			WritePWMA((u8)&PWMA_CCR1L, (u8)PWMx->PWM1_Duty);
 			WritePWMA((u8)&PWMA_CCR2H, (u8)(PWMx->PWM2_Duty >> 8));	//设置输出PWM的占空比
@@ -648,7 +648,7 @@ void UpdateHSPwm(u8 PWM, PWMx_Duty *PWMx)
 			WritePWMA((u8)&PWMA_CCR4L, (u8)PWMx->PWM4_Duty);
 		break;
 
-		case PWMB:
+		case PWMB_CHANNEL:
 			WritePWMB((u8)&PWMB_CCR5H, (u8)(PWMx->PWM5_Duty >> 8));	//设置输出PWM的占空比
 			WritePWMB((u8)&PWMB_CCR5L, (u8)PWMx->PWM5_Duty);
 			WritePWMB((u8)&PWMB_CCR6H, (u8)(PWMx->PWM6_Duty >> 8));	//设置输出PWM的占空比

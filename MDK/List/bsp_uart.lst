@@ -1,0 +1,56 @@
+C251 COMPILER V5.60.0,  bsp_uart                                                           14/05/23  10:09:45  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE bsp_uart
+OBJECT MODULE PLACED IN .\MDK\Obj\bsp_uart.obj
+COMPILER INVOKED BY: D:\Program\Keil_v5\C251\BIN\C251.EXE bsp\bsp_uart.c XSMALL INTR2 OPTIMIZE(0,SPEED) BROWSE INCDIR(.\
+                    -Driver;.\Driver\Inc;.\Driver\Isr;.\CORE\Inc;.\bsp\include) DEBUG PRINT(.\MDK\List\bsp_uart.lst) TABS(2) OBJECT(.\MDK\Obj
+                    -\bsp_uart.obj) 
+
+stmt  level    source
+
+    1          #include "config.h"
+    2          #include "STC32G_GPIO.h"
+    3          #include "STC32G_UART.h"
+    4          #include "STC32G_NVIC.h"
+    5          #include "STC32G_Switch.h"
+    6          /****************  串口初始化函数 *****************/
+    7          void bsp_uart_init(void)
+    8          {
+    9   1        COMx_InitDefine COMx_InitStructure;        // 结构定义
+   10   1        COMx_InitStructure.UART_Mode = UART_8bit_BRTx; // 模式,   UART_ShiftRight,UART_8bit_BRTx,UART_9bit,UART_
+             -9bit_BRTx
+   11   1        //  COMx_InitStructure.UART_BRT_Use   = BRT_Timer2;     //选择波特率发生器, BRT_Timer2 (注意: 串口2固定使用
+             -BRT_Timer2, 所以不用选择)
+   12   1        COMx_InitStructure.UART_BaudRate = 115200ul;  // 波特率,     110 ~ 115200
+   13   1        COMx_InitStructure.UART_RxEnable = ENABLE;    // 接收允许,   ENABLE 或 DISABLE
+   14   1        UART_Configuration(UART2, &COMx_InitStructure); // 初始化串口2 UART1,UART2,UART3,UART4
+   15   1        NVIC_UART2_Init(ENABLE, Priority_1);      // 中断使能, ENABLE/DISABLE; 优先级(低到高) Priority_0,Priority_1
+             -,Priority_2,Priority_3
+   16   1      
+   17   1        UART2_SW(UART2_SW_P46_P47); // UART2_SW_P10_P11,UART2_SW_P46_P47
+   18   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =        55     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =         9     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =    ------     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

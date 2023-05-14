@@ -323,16 +323,16 @@ u8 NVIC_RTC_Init(u8 State, u8 Priority)
 //========================================================================
 u8 NVIC_PWM_Init(u8 Channel, u8 State, u8 Priority)
 {
-	if(Channel > PWMB) return FAIL;
+	if(Channel > PWMB_CHANNEL) return FAIL;
 	if(Priority > Priority_3) return FAIL;
 	switch(Channel)
 	{
-		case PWMA:
+		case PWMA_CHANNEL:
 			PWMA_IER = State;
 			PWMA_Priority(Priority);
 		break;
 
-		case PWMB:
+		case PWMB_CHANNEL:
 			PWMB_IER = State;
 			PWMB_Priority(Priority);
 		break;

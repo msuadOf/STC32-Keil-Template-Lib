@@ -1,0 +1,1 @@
+"CORE\Src\MPU6500.c" XSMALL INTR2 OPTIMIZE (0,SPEED) BROWSE INCDIR(.\Driver;.\Driver\Inc;.\Driver\Isr;.\CORE\Inc;.\bsp\include) DEBUG PRINT(.\MDK\List\MPU6500.lst) TABS (2) OBJECT(.\MDK\Obj\MPU6500.obj)

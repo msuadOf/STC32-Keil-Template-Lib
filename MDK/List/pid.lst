@@ -1,0 +1,76 @@
+C251 COMPILER V5.60.0,  pid                                                                14/05/23  10:45:19  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE pid
+OBJECT MODULE PLACED IN .\MDK\Obj\pid.obj
+COMPILER INVOKED BY: D:\Program\Keil_v5\C251\BIN\C251.EXE CORE\Src\pid.c XSMALL INTR2 OPTIMIZE(0,SPEED) BROWSE INCDIR(.\
+                    -Driver;.\Driver\Inc;.\Driver\Isr;.\CORE\Inc;.\bsp\include) DEBUG PRINT(.\MDK\List\pid.lst) TABS(2) OBJECT(.\MDK\Obj\pid.
+                    -obj) 
+
+stmt  level    source
+
+    1          #include "pid.h"
+    2          
+    3          void arm_pid_init_f(pid_t * S)
+    4          {
+    5   1        /* Derived coefficient A0 */
+    6   1        S->A0 = S->Kp + S->Ki + S->Kd;
+    7   1        /* Derived coefficient A1 */
+    8   1        S->A1 = (-S->Kp) - ((float) 2.0f * S->Kd);
+    9   1        /* Derived coefficient A2 */
+   10   1        S->A2 = S->Kd;
+   11   1      
+   12   1      }
+   13          
+   14          float arm_pid_f(pid_t * S,float in)
+   15          {
+   16   1       float out;
+   17   1      
+   18   1      //  /* y[n] = y[n-1] + A0 * x[n] + A1 * x[n-1] + A2 * x[n-2]  */
+   19   1        out = (S->A0 * in) + (S->A1 * S->state[0]) + (S->A2 * S->state[1]) + (S->state[2]);
+   20   1      
+   21   1        /* Update state */
+   22   1        S->state[0] = in;
+   23   1        S->state[1] = S->state[0];
+   24   1        S->state[2] = out;
+   25   1      
+   26   1        /* return to application */
+   27   1        return (out);
+   28   1      }
+   29          float pid_process(pid_t *pid,float current, float aim, float max_thereshold, float min_thereshold)
+   30          {
+   31   1          float act_out;
+   32   1          arm_pid_init_f(pid);
+   33   1          act_out=arm_pid_f(pid,current-aim);
+   34   1          if(act_out<min_thereshold) 
+   35   1              act_out=min_thereshold;
+   36   1          if(act_out>max_thereshold) 
+   37   1              act_out=max_thereshold;
+   38   1          return act_out;
+   39   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       446     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =        40     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+C251 COMPILER V5.60.0,  pid                                                                14/05/23  10:45:19  PAGE 2   
+
+  hconst size          =    ------     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

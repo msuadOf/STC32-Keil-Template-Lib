@@ -1,0 +1,105 @@
+C251 COMPILER V5.60.0,  STC32G_I2C_Isr                                                     14/05/23  10:09:44  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE STC32G_I2C_Isr
+OBJECT MODULE PLACED IN .\MDK\Obj\STC32G_I2C_Isr.obj
+COMPILER INVOKED BY: D:\Program\Keil_v5\C251\BIN\C251.EXE Driver\Isr\STC32G_I2C_Isr.c XSMALL INTR2 OPTIMIZE(0,SPEED) BRO
+                    -WSE INCDIR(.\Driver;.\Driver\Inc;.\Driver\Isr;.\CORE\Inc;.\bsp\include) DEBUG PRINT(.\MDK\List\STC32G_I2C_Isr.lst) TABS(
+                    -2) OBJECT(.\MDK\Obj\STC32G_I2C_Isr.obj) 
+
+stmt  level    source
+
+    1          #include  "STC32G_I2C.h"
+    2          
+    3          I2C_IsrTypeDef I2CIsr;
+    4          bit DisplayFlag;
+    5          
+    6          //========================================================================
+    7          // 函数: I2C_ISR_Handler
+    8          // 描述: I2C中断函数.
+    9          // 参数: none.
+   10          // 返回: none.
+   11          // 版本: V1.0, 2020-09-23
+   12          //========================================================================
+   13          void I2C_ISR_Handler() interrupt I2C_VECTOR
+   14          {
+   15   1        // TODO: 在此处添加用户代码
+   16   1      
+   17   1        // 主机模式
+   18   1        I2CMSST &= ~0x40;       //I2C指令发送完成状态清除
+   19   1      
+   20   1        if(DMA_I2C_CR & 0x04)   //ACKERR
+   21   1        {
+   22   2          DMA_I2C_CR &= ~0x04;  //发数据后收到NAK
+   23   2        }
+   24   1      
+   25   1        // 从机模式
+   26   1        if (I2CSLST & 0x40)
+   27   1        {
+   28   2          I2CSLST &= ~0x40;                       //处理START事件
+   29   2        }
+   30   1        else if (I2CSLST & 0x20)
+   31   1        {
+   32   2          I2CSLST &= ~0x20;                       //处理RECV事件，SLACKO设置为0
+   33   2          if (I2CIsr.isda)
+   34   2          {
+   35   3            I2CIsr.isda = 0;                           //处理RECV事件（RECV DEVICE ADDR）
+   36   3          }
+   37   2          else if (I2CIsr.isma)
+   38   2          {
+   39   3            I2CIsr.isma = 0;                           //处理RECV事件（RECV MEMORY ADDR）
+   40   3            I2CIsr.addr = I2CRXD;
+   41   3            I2CTXD = I2C_Buffer[I2CIsr.addr];
+   42   3          }
+   43   2          else
+   44   2          {
+   45   3            I2C_Buffer[I2CIsr.addr++] = I2CRXD;            //处理RECV事件（RECV DATA）
+   46   3          }
+   47   2        }
+   48   1        else if (I2CSLST & 0x10)
+   49   1        {
+   50   2          I2CSLST &= ~0x10;                       //处理SEND事件
+   51   2          if (I2CSLST & 0x02)
+   52   2          {
+   53   3            I2CTXD = 0xff;
+   54   3          }
+   55   2          else
+   56   2          {
+   57   3            I2CTXD = I2C_Buffer[++I2CIsr.addr];
+C251 COMPILER V5.60.0,  STC32G_I2C_Isr                                                     14/05/23  10:09:44  PAGE 2   
+
+   58   3          }
+   59   2        }
+   60   1        else if (I2CSLST & 0x08)
+   61   1        {
+   62   2          I2CSLST &= ~0x08;                       //处理STOP事件
+   63   2          I2CIsr.isda = 1;
+   64   2          I2CIsr.isma = 1;
+   65   2          DisplayFlag = 1;
+   66   2        }
+   67   1      }
+   68          
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       394     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =         3     ------
+  bit size             =         1     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =    ------     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

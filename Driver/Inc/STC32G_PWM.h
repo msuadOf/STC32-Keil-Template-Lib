@@ -682,8 +682,8 @@
 #define	PWM7	7
 #define	PWM8	8
 
-#define	PWMA	9
-#define	PWMB	10
+#define	PWMA_CHANNEL	9
+#define	PWMB_CHANNEL	10
 
 #define PWM_BIE     0x80
 #define PWM_TIE     0x40

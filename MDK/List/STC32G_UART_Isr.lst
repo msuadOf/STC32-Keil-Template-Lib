@@ -1,0 +1,223 @@
+C251 COMPILER V5.60.0,  STC32G_UART_Isr                                                    14/05/23  10:09:45  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE STC32G_UART_Isr
+OBJECT MODULE PLACED IN .\MDK\Obj\STC32G_UART_Isr.obj
+COMPILER INVOKED BY: D:\Program\Keil_v5\C251\BIN\C251.EXE Driver\Isr\STC32G_UART_Isr.c XSMALL INTR2 OPTIMIZE(0,SPEED) BR
+                    -OWSE INCDIR(.\Driver;.\Driver\Inc;.\Driver\Isr;.\CORE\Inc;.\bsp\include) DEBUG PRINT(.\MDK\List\STC32G_UART_Isr.lst) TAB
+                    -S(2) OBJECT(.\MDK\Obj\STC32G_UART_Isr.obj) 
+
+stmt  level    source
+
+    1          #include "STC32G_UART.h"
+    2          
+    3          bit B_ULinRX1_Flag;
+    4          bit B_ULinRX2_Flag;
+    5          
+    6          //========================================================================
+    7          // 函数: UART1_ISR_Handler
+    8          // 描述: UART1中断函数.
+    9          // 参数: none.
+   10          // 返回: none.
+   11          // 版本: V1.0, 2020-09-23
+   12          //========================================================================
+   13          #ifdef UART1
+   14          void UART1_ISR_Handler (void) interrupt UART1_VECTOR
+   15          {
+   16   1        u8 Status;
+   17   1      
+   18   1        if(RI)
+   19   1        {
+   20   2          RI = 0;
+   21   2      
+   22   2          //--------USART LIN---------------
+   23   2          Status = USARTCR5;
+   24   2          if(Status & 0x02)     //if LIN header is detected
+   25   2          {
+   26   3            B_ULinRX1_Flag = 1;
+   27   3          }
+   28   2      
+   29   2          if(Status & 0xc0)     //if LIN break is detected / LIN header error is detected
+   30   2          {
+   31   3            COM1.RX_Cnt = 0;
+   32   3          }
+   33   2          USARTCR5 &= ~0xcb;    //Clear flag
+   34   2          //--------------------------------
+   35   2          
+   36   2          if(COM1.B_RX_OK == 0)
+   37   2          {
+   38   3            if(COM1.RX_Cnt >= COM_RX1_Lenth)  COM1.RX_Cnt = 0;
+   39   3            RX1_Buffer[COM1.RX_Cnt++] = SBUF;
+   40   3            COM1.RX_TimeOut = TimeOutSet1;
+   41   3          }
+   42   2        }
+   43   1      
+   44   1        if(TI)
+   45   1        {
+   46   2          TI = 0;
+   47   2          COM1.B_TX_busy = 0;
+   48   2          
+   49   2      //    if(COM1.TX_read != COM1.TX_write)
+   50   2      //    {
+   51   2      //      SBUF = TX1_Buffer[COM1.TX_read];
+   52   2      //      if(++COM1.TX_read >= COM_TX1_Lenth)   COM1.TX_read = 0;
+   53   2      //    }
+   54   2      //    else  COM1.B_TX_busy = 0;
+   55   2        }
+   56   1      }
+   57          #endif
+C251 COMPILER V5.60.0,  STC32G_UART_Isr                                                    14/05/23  10:09:45  PAGE 2   
+
+   58          
+   59          //========================================================================
+   60          // 函数: UART2_ISR_Handler
+   61          // 描述: UART2中断函数.
+   62          // 参数: none.
+   63          // 返回: none.
+   64          // 版本: V1.0, 2020-09-23
+   65          //========================================================================
+   66          #ifdef UART2
+   67          void UART2_ISR_Handler (void) interrupt UART2_VECTOR
+   68          {
+   69   1        u8 Status;
+   70   1      
+   71   1        if(S2RI)
+   72   1        {
+   73   2          CLR_RI2();
+   74   2      
+   75   2          //--------USART LIN---------------
+   76   2          Status = USART2CR5;
+   77   2          if(Status & 0x02)     //if LIN header is detected
+   78   2          {
+   79   3            B_ULinRX2_Flag = 1;
+   80   3          }
+   81   2      
+   82   2          if(Status & 0xc0)     //if LIN break is detected / LIN header error is detected
+   83   2          {
+   84   3            COM2.RX_Cnt = 0;
+   85   3          }
+   86   2          USART2CR5 &= ~0xcb;   //Clear flag
+   87   2          //--------------------------------
+   88   2          
+   89   2          if(COM2.B_RX_OK == 0)
+   90   2          {
+   91   3            if(COM2.RX_Cnt >= COM_RX2_Lenth)  COM2.RX_Cnt = 0;
+   92   3            RX2_Buffer[COM2.RX_Cnt++] = S2BUF;
+   93   3            COM2.RX_TimeOut = TimeOutSet2;
+   94   3          }
+   95   2        }
+   96   1      
+   97   1        if(S2TI)
+   98   1        {
+   99   2          CLR_TI2();
+  100   2          COM2.B_TX_busy = 0;
+  101   2          
+  102   2      //    if(COM2.TX_read != COM2.TX_write)
+  103   2      //    {
+  104   2      //      S2BUF = TX2_Buffer[COM2.TX_read];
+  105   2      //      if(++COM2.TX_read >= COM_TX2_Lenth)   COM2.TX_read = 0;
+  106   2      //    }
+  107   2      //    else  COM2.B_TX_busy = 0;
+  108   2        }
+  109   1      }
+  110          #endif
+  111          
+  112          //========================================================================
+  113          // 函数: UART3_ISR_Handler
+  114          // 描述: UART3中断函数.
+  115          // 参数: none.
+  116          // 返回: none.
+  117          // 版本: V1.0, 2020-09-23
+  118          //========================================================================
+  119          #ifdef UART3
+  120          void UART3_ISR_Handler (void) interrupt UART3_VECTOR
+  121          {
+  122   1        if(S3RI)
+  123   1        {
+C251 COMPILER V5.60.0,  STC32G_UART_Isr                                                    14/05/23  10:09:45  PAGE 3   
+
+  124   2          CLR_RI3();
+  125   2          if(COM3.B_RX_OK == 0)
+  126   2          {
+  127   3            if(COM3.RX_Cnt >= COM_RX3_Lenth)  COM3.RX_Cnt = 0;
+  128   3            RX3_Buffer[COM3.RX_Cnt++] = S3BUF;
+  129   3            COM3.RX_TimeOut = TimeOutSet3;
+  130   3          }
+  131   2        }
+  132   1      
+  133   1        if(S3TI)
+  134   1        {
+  135   2          CLR_TI3();
+  136   2          COM3.B_TX_busy = 0;
+  137   2          
+  138   2      //    if(COM3.TX_read != COM3.TX_write)
+  139   2      //    {
+  140   2      //      S3BUF = TX3_Buffer[COM3.TX_read];
+  141   2      //      if(++COM3.TX_read >= COM_TX3_Lenth)   COM3.TX_read = 0;
+  142   2      //    }
+  143   2      //    else  COM3.B_TX_busy = 0;
+  144   2        }
+  145   1      }
+  146          #endif
+  147          
+  148          //========================================================================
+  149          // 函数: UART4_ISR_Handler
+  150          // 描述: UART4中断函数.
+  151          // 参数: none.
+  152          // 返回: none.
+  153          // 版本: V1.0, 2020-09-23
+  154          //========================================================================
+  155          #ifdef UART4
+  156          void UART4_ISR_Handler (void) interrupt UART4_VECTOR
+  157          {
+  158   1        if(S4RI)
+  159   1        {
+  160   2          CLR_RI4();
+  161   2          if(COM4.B_RX_OK == 0)
+  162   2          {
+  163   3            if(COM4.RX_Cnt >= COM_RX4_Lenth)  COM4.RX_Cnt = 0;
+  164   3            RX4_Buffer[COM4.RX_Cnt++] = S4BUF;
+  165   3            COM4.RX_TimeOut = TimeOutSet4;
+  166   3          }
+  167   2        }
+  168   1      
+  169   1        if(S4TI)
+  170   1        {
+  171   2          CLR_TI4();
+  172   2          COM4.B_TX_busy = 0;
+  173   2          
+  174   2      //    if(COM4.TX_read != COM4.TX_write)
+  175   2      //    {
+  176   2      //      S4BUF = TX4_Buffer[COM4.TX_read];
+  177   2      //      if(++COM4.TX_read >= COM_TX4_Lenth)   COM4.TX_read = 0;
+  178   2      //    }
+  179   2      //    else  COM4.B_TX_busy = 0;
+  180   2        }
+  181   1      }
+  182          #endif
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       502     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+C251 COMPILER V5.60.0,  STC32G_UART_Isr                                                    14/05/23  10:09:45  PAGE 4   
+
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =         2     ------
+  bit size             =         2     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =    ------     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

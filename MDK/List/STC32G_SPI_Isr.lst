@@ -1,0 +1,65 @@
+C251 COMPILER V5.60.0,  STC32G_SPI_Isr                                                     14/05/23  10:09:45  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE STC32G_SPI_Isr
+OBJECT MODULE PLACED IN .\MDK\Obj\STC32G_SPI_Isr.obj
+COMPILER INVOKED BY: D:\Program\Keil_v5\C251\BIN\C251.EXE Driver\Isr\STC32G_SPI_Isr.c XSMALL INTR2 OPTIMIZE(0,SPEED) BRO
+                    -WSE INCDIR(.\Driver;.\Driver\Inc;.\Driver\Isr;.\CORE\Inc;.\bsp\include) DEBUG PRINT(.\MDK\List\STC32G_SPI_Isr.lst) TABS(
+                    -2) OBJECT(.\MDK\Obj\STC32G_SPI_Isr.obj) 
+
+stmt  level    source
+
+    1          #include  "STC32G_SPI.h"
+    2          
+    3          //========================================================================
+    4          //                               本地变量声明
+    5          //========================================================================
+    6          
+    7          u8  SPI_RxCnt;
+    8          
+    9          //========================================================================
+   10          // 函数: SPI_ISR_Handler
+   11          // 描述: SPI中断函数.
+   12          // 参数: none.
+   13          // 返回: none.
+   14          // 版本: V1.0, 2020-09-23
+   15          //========================================================================
+   16          void SPI_ISR_Handler() interrupt SPI_VECTOR
+   17          {
+   18   1        if(MSTR)  //主机模式
+   19   1        {
+   20   2          B_SPI_Busy = 0;
+   21   2        }
+   22   1        else              //从机模式
+   23   1        {
+   24   2          if(SPI_RxCnt >= SPI_BUF_LENTH)    SPI_RxCnt = 0;
+   25   2          SPI_RxBuffer[SPI_RxCnt++] = SPDAT;
+   26   2          SPI_RxTimerOut = 5;
+   27   2        }
+   28   1        SPI_ClearFlag();  //清0 SPIF和WCOL标志
+   29   1      }
+   30          
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =        81     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =         1     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =    ------     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

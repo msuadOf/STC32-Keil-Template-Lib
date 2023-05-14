@@ -170,7 +170,7 @@
 																if(n == 2) PLVDH = 1, PADC = 0; \
 																if(n == 3) PLVDH = 1, PADC = 1; \
 															}while(0)
-//高级PWMA中断优先级控制
+//高级PWMA_CHANNEL中断优先级控制
 #define 	PWMA_Priority(n)			do{if(n == 0) PPWMAH = 0, PPWMA = 0; \
 																if(n == 1) PPWMAH = 0, PPWMA = 1; \
 																if(n == 2) PPWMAH = 1, PPWMA = 0; \

@@ -1,6 +1,6 @@
 #ifndef __STC32G_H_
 #define __STC32G_H_
-
+//
 /////////////////////////////////////////////////
 #include <intrins.h>
 

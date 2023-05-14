@@ -1,0 +1,161 @@
+C251 COMPILER V5.60.0,  bsp_spi_mpu6500                                                    14/05/23  10:09:45  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE bsp_spi_mpu6500
+OBJECT MODULE PLACED IN .\MDK\Obj\bsp_spi_mpu6500.obj
+COMPILER INVOKED BY: D:\Program\Keil_v5\C251\BIN\C251.EXE bsp\bsp_spi_mpu6500.c XSMALL INTR2 OPTIMIZE(0,SPEED) BROWSE IN
+                    -CDIR(.\Driver;.\Driver\Inc;.\Driver\Isr;.\CORE\Inc;.\bsp\include) DEBUG PRINT(.\MDK\List\bsp_spi_mpu6500.lst) TABS(2) OB
+                    -JECT(.\MDK\Obj\bsp_spi_mpu6500.obj) 
+
+stmt  level    source
+
+    1          
+    2          /*
+    3          ====================================
+    4              ||
+    5              ||
+    6              ||  硬件实现层，更改设备的话请在这里进行实现
+    7              ||
+    8              ||
+    9          +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   10          */
+   11          #include "config.h"
+   12          
+   13          //========SPI实现（部分函数SPI库有实现：SPI_WriteByte、SPI_ReadByte）========
+   14          
+   15          
+   16          #include "STC32G_SPI.h"
+   17          #include "STC32G_NVIC.h"
+   18          #include "STC32G_Switch.h"
+   19          
+   20          #define SPI_CS_EN() SPI_SS_2 = 0
+   21          #define SPI_CS_DISABLE() SPI_SS_2 = 1
+   22          
+   23          /****************  SPI初始化函数 *****************/
+   24          void SPI_config(void)
+   25          {
+   26   1          SPI_InitTypeDef SPI_InitStructure;
+   27   1          SPI_InitStructure.SPI_Enable = ENABLE;        // SPI启动    ENABLE, DISABLE
+   28   1          SPI_InitStructure.SPI_SSIG = DISABLE;          // 片选位     ENABLE, DISABLE
+   29   1          SPI_InitStructure.SPI_FirstBit = SPI_MSB;     // 移位方向   SPI_MSB, SPI_LSB
+   30   1          SPI_InitStructure.SPI_Mode = SPI_Mode_Master; // 主从选择   SPI_Mode_Master, SPI_Mode_Slave
+   31   1          SPI_InitStructure.SPI_CPOL = SPI_CPOL_High;   // 时钟相位   SPI_CPOL_High,   SPI_CPOL_Low
+   32   1          SPI_InitStructure.SPI_CPHA = SPI_CPHA_2Edge;  // 数据边沿   SPI_CPHA_1Edge,  SPI_CPHA_2Edge
+   33   1          SPI_InitStructure.SPI_Speed = SPI_Speed_16;    // SPI速度    SPI_Speed_4, SPI_Speed_16, SPI_Speed_64,
+             - SPI_Speed_128
+   34   1          SPI_Init(&SPI_InitStructure);
+   35   1          //NVIC_SPI_Init(ENABLE, Priority_3); // 中断使能, ENABLE/DISABLE; 优先级(低到高) Priority_0,Priority_
+             -1,Priority_2,Priority_3
+   36   1      
+   37   1          SPI_SW(SPI_P22_P23_P24_P25); // SPI_P54_P13_P14_P15,SPI_P22_P23_P24_P25,SPI_P54_P40_P41_P43,SPI_P35_P
+             -34_P33_P32
+   38   1          SPI_SS_2 = 1;
+   39   1      }
+   40          
+   41          // void SPI_WriteByte(u8 out)
+   42          //{
+   43          //     SPDAT = out;
+   44          //     while(SPIF == 0) ;
+   45          //     SPIF = 1;   //清SPIF标志
+   46          //     WCOL = 1;   //清WCOL标志
+   47          // }
+   48          
+   49          ///************************************************************************/
+   50          // u8 SPI_ReadByte(void)
+   51          //{
+   52          //     SPDAT = 0xff;
+   53          //     while(SPIF == 0) ;
+   54          //     SPIF = 1;   //清SPIF标志
+C251 COMPILER V5.60.0,  bsp_spi_mpu6500                                                    14/05/23  10:09:45  PAGE 2   
+
+   55          //     WCOL = 1;   //清WCOL标志
+   56          //     return (SPDAT);
+   57          // }
+   58          
+   59          /************************************************************************
+   60          读出size个字节,跟指定的数据进行比较, 错误返回1,正确返回0
+   61          ************************************************************************/
+   62          void SPI_Read_Nbytes(u8 addr, u8 *buffer, u16 size)
+   63          {
+   64   1          if (size == 0)
+   65   1              return;
+   66   1      
+   67   1          SPI_CS_EN(); // enable device
+   68   1      
+   69   1          SPI_WriteByte(addr); // 设置起始地址
+   70   1      
+   71   1          do
+   72   1          {
+   73   2              *buffer = SPI_ReadByte(); // receive byte and store at buffer
+   74   2              buffer++;
+   75   2          } while (--size); // read until no_bytes is reached
+   76   1          SPI_CS_DISABLE(); // disable device
+   77   1      }
+   78          
+   79          
+   80          
+   81          /************************************************
+   82          写数据到spi总线上
+   83          入口参数:
+   84              addr   : 地址参数
+   85              buffer : 缓冲需要写入Flash的数据
+   86              size   : 字节数
+   87          出口参数: 无
+   88          ************************************************/
+   89          void SPI_Write_Nbytes(u8 addr, u8 *buffer, u8 size)
+   90          {
+   91   1          if (size == 0)
+   92   1              return;
+   93   1      
+   94   1          SPI_CS_EN(); // enable device
+   95   1      
+   96   1          SPI_WriteByte(addr); // 设置起始地址
+   97   1      
+   98   1          do
+   99   1          {
+  100   2              SPI_WriteByte(*buffer++); // 连续页内写
+  101   2              addr++;
+  102   2              // if ((addr & 0xff) == 0) break;
+  103   2          } while (--size);
+  104   1          SPI_CS_DISABLE(); // disable device
+  105   1      }
+  106          
+  107          void bsp_spi_init(){
+  108   1          SPI_config();
+  109   1      }
+  110          
+  111          void bsp_spi_read(unsigned char addr, unsigned char *buffer, int len){
+  112   1          SPI_Read_Nbytes(addr+(1<<7), buffer, len);
+*** WARNING C188 IN LINE 112 OF bsp\bsp_spi_mpu6500.c: 'parameter 1': value truncated
+  113   1      }
+  114          
+  115          void bsp_spi_write(unsigned char addr, unsigned char *buffer, int len){
+  116   1          SPI_Write_Nbytes(addr+(0<<7), buffer, len);
+*** WARNING C188 IN LINE 116 OF bsp\bsp_spi_mpu6500.c: 'parameter 3': value truncated
+  117   1      }
+
+C251 COMPILER V5.60.0,  bsp_spi_mpu6500                                                    14/05/23  10:09:45  PAGE 3   
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       286     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =        34     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =    ------     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  2 WARNING(S),  0 ERROR(S)

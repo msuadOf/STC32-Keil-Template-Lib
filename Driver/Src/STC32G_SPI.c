@@ -92,7 +92,7 @@ void SPI_WriteByte(u8 dat)		//SPI发送一个字节数据
 //========================================================================
 u8 SPI_ReadByte(void)
 {
-	SPDAT = 0xff;
+	SPDAT = 0x00;
 	while(SPIF == 0) ;
 	SPI_ClearFlag();   //清0 SPIF和WCOL标志
 	return (SPDAT);
